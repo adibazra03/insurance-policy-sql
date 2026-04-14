@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Search Customer — InsureTrack{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1><i class="bi bi-search me-2"></i>Search Customer</h1>
+</div>
+
+<div class="card p-4 mb-3">
+  <form method="POST">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">First Name</label>
+        <input name="first_name" class="form-control" value="{{ request.form.get('first_name','') }}" required />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Last Name</label>
+        <input name="last_name" class="form-control" value="{{ request.form.get('last_name','') }}" required />
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Email</label>
+        <input name="email" type="email" class="form-control" value="{{ request.form.get('email','') }}" required />
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-primary w-100"><i class="bi bi-search me-1"></i> Search</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+{% if customer %}
+<div class="card p-4 mb-3">
+  <h5 class="mb-3">Customer Found</h5>
+  <div class="row">
+    <div class="col-md-6">
+      <table class="table table-borderless table-sm mb-0">
+        <tr><th width="140">ID</th><td>{{ customer[0] }}</td></tr>
+        <tr><th>Name</th><td>{{ customer[1] }} {{ customer[2] }}</td></tr>
+        <tr><th>Email</th><td>{{ customer[3] }}</td></tr>
+        <tr><th>Phone</th><td>{{ customer[4] }}</td></tr>
+        <tr><th>Date of Birth</th><td>{{ customer[5]|string|truncate(10,True,'') }}</td></tr>
+        <tr><th>Address</th><td>{{ customer[6] }}, {{ customer[7] }}, {{ customer[8] }} {{ customer[9] }}</td></tr>
+        <tr><th>Created At</th><td>{{ customer[10] }}</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% if policies %}
+<div class="card p-4">
+  <h5 class="mb-3">Active Policies</h5>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>ID</th><th>Policy No.</th><th>Type</th>
+          <th class="text-end">Coverage</th><th class="text-end">Monthly</th>
+          <th>Start</th><th>End</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in policies %}
+        <tr>
+          <td>{{ p[0] }}</td>
+          <td>{{ p[1] }}</td>
+          <td>{{ p[2] }}</td>
+          <td class="text-end">${{ "{:,.2f}".format(p[3]) }}</td>
+          <td class="text-end">${{ "{:,.2f}".format(p[4]) }}</td>
+          <td>{{ p[5]|string|truncate(10, True, '') }}</td>
+          <td>{{ p[6]|string|truncate(10, True, '') if p[6] else '—' }}</td>
+          <td><span class="badge badge-active">{{ p[7] }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-info">No active policies found for this customer.</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Home Policies — InsureTrack{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1><i class="bi bi-house me-2"></i>Home Policy Details</h1>
+  <p class="text-muted mb-0">{{ rows|length }} record(s)</p>
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Policy ID</th><th>House Address</th>
+          <th class="text-end">Area (sq ft)</th><th class="text-end">Bedrooms</th>
+          <th class="text-end">Bathrooms</th><th class="text-end">House Price</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if not rows %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No home policies found.</td></tr>
+        {% endif %}
+        {% for r in rows %}
+        <tr>
+          <td><span class="badge bg-secondary">{{ r[0] }}</span></td>
+          <td>{{ r[1] }}</td>
+          <td class="text-end">{{ "{:,.2f}".format(r[2]) }}</td>
+          <td class="text-end">{{ r[3] }}</td>
+          <td class="text-end">{{ r[4] }}</td>
+          <td class="text-end">${{ "{:,.2f}".format(r[5]) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

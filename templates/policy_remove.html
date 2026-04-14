@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Remove Policy — InsureTrack{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1><i class="bi bi-file-earmark-minus me-2"></i>Remove Policy</h1>
+  <p class="text-muted mb-0">Find a customer by name &amp; email, then select the policy to remove.</p>
+</div>
+
+<div class="card p-4 mb-3">
+  <form method="POST">
+    <input type="hidden" name="action" value="search" />
+    <div class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">First Name</label>
+        <input name="first_name" class="form-control" required />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Last Name</label>
+        <input name="last_name" class="form-control" required />
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Email</label>
+        <input name="email" type="email" class="form-control" required />
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-outline-primary w-100"><i class="bi bi-search me-1"></i> Search</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+{% if customer %}
+<div class="card p-4">
+  <h5 class="mb-1">{{ customer[1] }} {{ customer[2] }}
+    <small class="text-muted">(ID: {{ customer[0] }})</small>
+  </h5>
+  <p class="text-muted mb-3">{{ customer[3] }}</p>
+
+  {% if not policies %}
+    <p class="text-muted">This customer has no policies.</p>
+  {% else %}
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th>ID</th><th>Policy No.</th><th>Type</th>
+          <th class="text-end">Coverage</th><th class="text-end">Monthly</th>
+          <th>Start</th><th>End</th><th>Status</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in policies %}
+        <tr>
+          <td>{{ p[0] }}</td>
+          <td>{{ p[1] }}</td>
+          <td>{{ p[2] }}</td>
+          <td class="text-end">${{ "{:,.2f}".format(p[3]) }}</td>
+          <td class="text-end">${{ "{:,.2f}".format(p[4]) }}</td>
+          <td>{{ p[5]|string|truncate(10, True, '') }}</td>
+          <td>{{ p[6]|string|truncate(10, True, '') if p[6] else '—' }}</td>
+          <td>{{ p[7] }}</td>
+          <td>
+            <form method="POST" onsubmit="return confirm('Remove policy ID {{ p[0] }}?')">
+              <input type="hidden" name="action" value="delete" />
+              <input type="hidden" name="policy_id" value="{{ p[0] }}" />
+              <input type="hidden" name="customer_id" value="{{ customer[0] }}" />
+              <button class="btn btn-danger btn-sm"><i class="bi bi-trash"></i></button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
