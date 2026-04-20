@@ -551,5 +551,284 @@ def search_policy():
     return render_template("policy_search.html", policy=policy, detail=detail)
 
 
+# ---------------------------------------------------------------------------
+# Edit Customer
+# ---------------------------------------------------------------------------
+
+@app.route("/customers/edit", methods=["GET", "POST"])
+def edit_customer():
+    all_customers = []
+    matched = []
+    customer = None
+
+    if request.method == "POST":
+        action = request.form.get("action")
+
+        # Search by name / email
+        if action == "search":
+            fn = request.form.get("first_name", "").strip()
+            ln = request.form.get("last_name", "").strip()
+            em = request.form.get("email", "").strip()
+            try:
+                conn = get_connection()
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT customer_id, first_name, last_name, email, phone,
+                           date_of_birth, street, city, state, postal_code, created_at
+                    FROM customers
+                    WHERE LOWER(first_name) = LOWER(:fn)
+                      AND LOWER(last_name)  = LOWER(:ln)
+                      AND LOWER(email)      = LOWER(:em)
+                    ORDER BY customer_id
+                """, {"fn": fn, "ln": ln, "em": em})
+                matched = cur.fetchall()
+                cur.execute("""
+                    SELECT customer_id, first_name, last_name, email, phone,
+                           date_of_birth, street, city, state, postal_code, created_at
+                    FROM customers ORDER BY customer_id
+                """)
+                all_customers = cur.fetchall()
+                cur.close()
+                conn.close()
+                if not matched:
+                    flash(f"No customer found matching that name and email.", "warning")
+            except Exception as e:
+                flash(f"DB error: {e}", "danger")
+            return render_template("customer_edit.html",
+                                   all_customers=all_customers, matched=matched,
+                                   first_name=fn, last_name=ln, email=em)
+
+        # Load one customer into edit form
+        elif action == "load":
+            cid = request.form["customer_id"]
+            try:
+                conn = get_connection()
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT customer_id, first_name, last_name, email, phone,
+                           date_of_birth, street, city, state, postal_code
+                    FROM customers WHERE customer_id = :cid
+                """, {"cid": cid})
+                customer = cur.fetchone()
+                cur.close()
+                conn.close()
+            except Exception as e:
+                flash(f"DB error: {e}", "danger")
+            return render_template("customer_edit_form.html", customer=customer)
+
+        # Save edits
+        elif action == "save":
+            f = request.form
+            cid = f["customer_id"]
+            conn = None
+            cur = None
+            try:
+                conn = get_connection()
+                cur = conn.cursor()
+                cur.execute("""
+                    UPDATE customers SET
+                        first_name   = :fn,
+                        last_name    = :ln,
+                        email        = :email,
+                        phone        = :phone,
+                        date_of_birth = TO_DATE(:dob, 'YYYY-MM-DD'),
+                        street       = :street,
+                        city         = :city,
+                        state        = :state,
+                        postal_code  = :zip
+                    WHERE customer_id = :cid
+                """, {
+                    "fn": f["first_name"], "ln": f["last_name"],
+                    "email": f["email"], "phone": f["phone"],
+                    "dob": f["dob"], "street": f["street"],
+                    "city": f["city"], "state": f["state"],
+                    "zip": f["postal_code"], "cid": cid
+                })
+                conn.commit()
+                flash(f"Customer ID {cid} updated successfully.", "success")
+                return redirect(url_for("customers_list"))
+            except cx_Oracle.DatabaseError as e:
+                if conn: conn.rollback()
+                flash(f"DB error: {e}", "danger")
+            finally:
+                if cur: cur.close()
+                if conn: conn.close()
+
+    # GET — load full customer list
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT customer_id, first_name, last_name, email, phone,
+                   date_of_birth, street, city, state, postal_code, created_at
+            FROM customers ORDER BY customer_id
+        """)
+        all_customers = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        flash(f"DB error: {e}", "danger")
+
+    return render_template("customer_edit.html", all_customers=all_customers, matched=matched)
+
+
+# ---------------------------------------------------------------------------
+# Edit Policy
+# ---------------------------------------------------------------------------
+
+@app.route("/policies/edit", methods=["GET", "POST"])
+def edit_policy():
+    matched = []
+    policy = None
+    detail = None
+
+    if request.method == "POST":
+        action = request.form.get("action")
+
+        # Step 1 — search by name, email, policy type
+        if action == "search":
+            fn = request.form["first_name"]
+            ln = request.form["last_name"]
+            em = request.form["email"]
+            ptype = request.form["policy_type"].upper()
+            try:
+                conn = get_connection()
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT p.policy_id, p.policy_number, p.policy_type,
+                           p.coverage_amount, p.monthly_payment,
+                           p.start_date, p.end_date, p.status,
+                           c.customer_id, c.first_name, c.last_name
+                    FROM insurance_policies p
+                    JOIN customers c ON c.customer_id = p.customer_id
+                    WHERE LOWER(c.first_name) = LOWER(:fn)
+                      AND LOWER(c.last_name)  = LOWER(:ln)
+                      AND LOWER(c.email)      = LOWER(:em)
+                      AND UPPER(p.policy_type) = :pt
+                    ORDER BY p.policy_id
+                """, {"fn": fn, "ln": ln, "em": em, "pt": ptype})
+                matched = cur.fetchall()
+                cur.close()
+                conn.close()
+                if not matched:
+                    flash("No matching policies found.", "warning")
+            except Exception as e:
+                flash(f"DB error: {e}", "danger")
+            return render_template("policy_edit.html", matched=matched,
+                                   first_name=fn, last_name=ln,
+                                   email=em, policy_type=ptype)
+
+        # Step 2 — load policy into edit form
+        elif action == "load":
+            pid = request.form["policy_id"]
+            try:
+                conn = get_connection()
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT p.policy_id, p.policy_number, p.policy_type,
+                           p.coverage_amount, p.monthly_payment,
+                           p.start_date, p.end_date, p.status,
+                           c.customer_id, c.first_name, c.last_name
+                    FROM insurance_policies p
+                    JOIN customers c ON c.customer_id = p.customer_id
+                    WHERE p.policy_id = :pid
+                """, {"pid": pid})
+                policy = cur.fetchone()
+                if policy:
+                    ptype = policy[2]
+                    if ptype == "HOME":
+                        cur.execute("""
+                            SELECT house_address, house_area, bedrooms, bathrooms, house_price
+                            FROM home_policy_details WHERE policy_id = :pid
+                        """, {"pid": pid})
+                    elif ptype == "CAR":
+                        cur.execute("""
+                            SELECT make, model, car_year, vin, mileage_per_year
+                            FROM car_policy_details WHERE policy_id = :pid
+                        """, {"pid": pid})
+                    elif ptype == "LIFE":
+                        cur.execute("""
+                            SELECT existing_conditions, beneficiary
+                            FROM life_policy_details WHERE policy_id = :pid
+                        """, {"pid": pid})
+                    detail = cur.fetchone()
+                cur.close()
+                conn.close()
+            except Exception as e:
+                flash(f"DB error: {e}", "danger")
+            return render_template("policy_edit_form.html", policy=policy, detail=detail)
+
+        # Step 3 — save edits
+        elif action == "save":
+            f = request.form
+            pid = f["policy_id"]
+            ptype = f["policy_type"]
+            end_date = f.get("end_date") or None
+            conn = None
+            cur = None
+            try:
+                conn = get_connection()
+                cur = conn.cursor()
+                cur.execute("""
+                    UPDATE insurance_policies SET
+                        policy_number    = :pnum,
+                        coverage_amount  = :cov,
+                        monthly_payment  = :mp,
+                        start_date       = TO_DATE(:sd, 'YYYY-MM-DD'),
+                        end_date         = TO_DATE(:ed, 'YYYY-MM-DD'),
+                        status           = :st
+                    WHERE policy_id = :pid
+                """, {
+                    "pnum": f["policy_number"], "cov": f["coverage_amount"],
+                    "mp": f["monthly_payment"], "sd": f["start_date"],
+                    "ed": end_date, "st": f["status"], "pid": pid
+                })
+
+                if ptype == "HOME":
+                    cur.execute("""
+                        UPDATE home_policy_details SET
+                            house_address = :addr, house_area = :area,
+                            bedrooms = :bed, bathrooms = :bath, house_price = :price
+                        WHERE policy_id = :pid
+                    """, {
+                        "addr": f["house_address"], "area": f["house_area"],
+                        "bed": f["bedrooms"], "bath": f["bathrooms"],
+                        "price": f["house_price"], "pid": pid
+                    })
+                elif ptype == "CAR":
+                    cur.execute("""
+                        UPDATE car_policy_details SET
+                            make = :make, model = :model, car_year = :yr,
+                            vin = :vin, mileage_per_year = :mi
+                        WHERE policy_id = :pid
+                    """, {
+                        "make": f["make"], "model": f["model"],
+                        "yr": f["car_year"], "vin": f["vin"],
+                        "mi": f["mileage_per_year"], "pid": pid
+                    })
+                elif ptype == "LIFE":
+                    cur.execute("""
+                        UPDATE life_policy_details SET
+                            existing_conditions = :cond, beneficiary = :ben
+                        WHERE policy_id = :pid
+                    """, {
+                        "cond": f.get("existing_conditions") or None,
+                        "ben": f["beneficiary"], "pid": pid
+                    })
+
+                conn.commit()
+                flash(f"Policy ID {pid} updated successfully.", "success")
+                return redirect(url_for("policies_list"))
+
+            except cx_Oracle.DatabaseError as e:
+                if conn: conn.rollback()
+                flash(f"DB error: {e}", "danger")
+            finally:
+                if cur: cur.close()
+                if conn: conn.close()
+
+    return render_template("policy_edit.html", matched=matched)
+
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

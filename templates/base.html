@@ -87,6 +87,9 @@
   <a href="{{ url_for('remove_customer') }}" class="nav-link {% if request.endpoint=='remove_customer' %}active{% endif %}">
     <i class="bi bi-person-dash"></i> Remove Customer
   </a>
+  <a href="{{ url_for('edit_customer') }}" class="nav-link {% if request.endpoint in ['edit_customer'] %}active{% endif %}">
+    <i class="bi bi-person-gear"></i> Edit Customer
+  </a>
 
   <div class="nav-section">Policies</div>
   <a href="{{ url_for('policies_list') }}" class="nav-link {% if request.endpoint=='policies_list' %}active{% endif %}">
@@ -100,6 +103,9 @@
   </a>
   <a href="{{ url_for('remove_policy') }}" class="nav-link {% if request.endpoint=='remove_policy' %}active{% endif %}">
     <i class="bi bi-file-earmark-minus"></i> Remove Policy
+  </a>
+  <a href="{{ url_for('edit_policy') }}" class="nav-link {% if request.endpoint=='edit_policy' %}active{% endif %}">
+    <i class="bi bi-pencil-square"></i> Edit Policy
   </a>
 
   <div class="nav-section">Details</div>
