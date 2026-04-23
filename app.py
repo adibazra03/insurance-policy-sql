@@ -344,6 +344,248 @@ def add_policy():
     return render_template("policy_add.html", matched=matched)
 
 # ---------------------------------------------------------------------------
+# Edit Customer
+# ---------------------------------------------------------------------------
+
+@app.route("/customers/edit", methods=["GET", "POST"])
+def edit_customer_lookup():
+    matched = []
+
+    if request.method == "POST":
+        fn = request.form["first_name"]
+        ln = request.form["last_name"]
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT customer_id, first_name, last_name, email, phone
+                FROM customers
+                WHERE LOWER(first_name)=LOWER(:f) AND LOWER(last_name)=LOWER(:l)
+                ORDER BY customer_id
+            """, {"f": fn, "l": ln})
+            matched = cur.fetchall()
+            cur.close()
+            conn.close()
+            if not matched:
+                flash(f"No customer found with name '{fn} {ln}'.", "warning")
+        except Exception as e:
+            flash(f"DB error: {e}", "danger")
+        return render_template("customer_edit_lookup.html", matched=matched,
+                               first_name=fn, last_name=ln)
+
+    return render_template("customer_edit_lookup.html", matched=matched)
+
+
+@app.route("/customers/<int:customer_id>/edit", methods=["GET", "POST"])
+def edit_customer(customer_id):
+    conn = None
+    cur = None
+
+    if request.method == "POST":
+        f = request.form
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE customers
+                SET first_name=:fn,
+                    last_name=:ln,
+                    email=:email,
+                    phone=:phone,
+                    date_of_birth=TO_DATE(:dob, 'YYYY-MM-DD'),
+                    street=:street,
+                    city=:city,
+                    state=:state,
+                    postal_code=:zip
+                WHERE customer_id=:cid
+            """, {
+                "fn": f["first_name"], "ln": f["last_name"],
+                "email": f["email"], "phone": f["phone"], "dob": f["dob"],
+                "street": f["street"], "city": f["city"],
+                "state": f["state"], "zip": f["postal_code"],
+                "cid": customer_id
+            })
+            conn.commit()
+            flash(f"Customer ID {customer_id} updated successfully.", "success")
+            return redirect(url_for("customers_list"))
+        except cx_Oracle.DatabaseError as e:
+            if conn: conn.rollback()
+            flash(f"DB error: {e}", "danger")
+        finally:
+            if cur: cur.close()
+            if conn: conn.close()
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT customer_id, first_name, last_name, email, phone,
+                   date_of_birth, street, city, state, postal_code
+            FROM customers
+            WHERE customer_id=:cid
+        """, {"cid": customer_id})
+        customer = cur.fetchone()
+        cur.close()
+        conn.close()
+        if not customer:
+            flash(f"No customer found with ID {customer_id}.", "warning")
+            return redirect(url_for("customers_list"))
+        return render_template("customer_edit.html", customer=customer)
+    except Exception as e:
+        flash(f"DB error: {e}", "danger")
+        return redirect(url_for("customers_list"))
+
+# ---------------------------------------------------------------------------
+# Edit Policy
+# ---------------------------------------------------------------------------
+
+@app.route("/policies/edit", methods=["GET", "POST"])
+def edit_policy_lookup():
+    policy = None
+
+    if request.method == "POST":
+        pid = request.form["policy_id"]
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT p.policy_id, p.policy_number, p.policy_type, p.status,
+                       c.first_name, c.last_name, c.email
+                FROM insurance_policies p
+                JOIN customers c ON c.customer_id = p.customer_id
+                WHERE p.policy_id=:pid
+            """, {"pid": pid})
+            policy = cur.fetchone()
+            cur.close()
+            conn.close()
+            if not policy:
+                flash(f"No policy found with ID {pid}.", "warning")
+        except Exception as e:
+            flash(f"DB error: {e}", "danger")
+        return render_template("policy_edit_lookup.html", policy=policy)
+
+    return render_template("policy_edit_lookup.html", policy=policy)
+
+
+@app.route("/policies/<int:policy_id>/edit", methods=["GET", "POST"])
+def edit_policy(policy_id):
+    conn = None
+    cur = None
+
+    if request.method == "POST":
+        f = request.form
+        policy_type = f["policy_type"].upper()
+        end_date = f.get("end_date") or None
+
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+
+            cur.execute("""
+                UPDATE insurance_policies
+                SET policy_number=:pnum,
+                    policy_type=:ptype,
+                    coverage_amount=:cov,
+                    monthly_payment=:mp,
+                    start_date=TO_DATE(:sd, 'YYYY-MM-DD'),
+                    end_date=TO_DATE(:ed, 'YYYY-MM-DD'),
+                    status=:status
+                WHERE policy_id=:pid
+            """, {
+                "pnum": f["policy_number"], "ptype": policy_type,
+                "cov": f["coverage_amount"], "mp": f["monthly_payment"],
+                "sd": f["start_date"], "ed": end_date,
+                "status": f["status"], "pid": policy_id
+            })
+
+            for table in ("home_policy_details", "car_policy_details", "life_policy_details"):
+                cur.execute(f"DELETE FROM {table} WHERE policy_id=:pid", {"pid": policy_id})
+
+            if policy_type == "HOME":
+                cur.execute("""
+                    INSERT INTO home_policy_details
+                        (policy_id, house_address, house_area, bedrooms, bathrooms, house_price)
+                    VALUES (:pid, :addr, :area, :bed, :bath, :price)
+                """, {
+                    "pid": policy_id, "addr": f["house_address"],
+                    "area": f["house_area"], "bed": f["bedrooms"],
+                    "bath": f["bathrooms"], "price": f["house_price"]
+                })
+            elif policy_type == "CAR":
+                cur.execute("""
+                    INSERT INTO car_policy_details
+                        (policy_id, make, model, car_year, vin, mileage_per_year)
+                    VALUES (:pid, :make, :model, :yr, :vin, :mi)
+                """, {
+                    "pid": policy_id, "make": f["make"], "model": f["model"],
+                    "yr": f["car_year"], "vin": f["vin"],
+                    "mi": f["mileage_per_year"]
+                })
+            elif policy_type == "LIFE":
+                cur.execute("""
+                    INSERT INTO life_policy_details
+                        (policy_id, existing_conditions, beneficiary)
+                    VALUES (:pid, :cond, :ben)
+                """, {
+                    "pid": policy_id, "cond": f.get("existing_conditions") or None,
+                    "ben": f["beneficiary"]
+                })
+            else:
+                flash("Invalid policy type selected.", "danger")
+                return redirect(url_for("edit_policy", policy_id=policy_id))
+
+            conn.commit()
+            flash(f"Policy ID {policy_id} updated successfully.", "success")
+            return redirect(url_for("policies_list"))
+        except cx_Oracle.DatabaseError as e:
+            if conn: conn.rollback()
+            flash(f"DB error: {e}", "danger")
+        finally:
+            if cur: cur.close()
+            if conn: conn.close()
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT p.policy_id, p.customer_id, p.policy_number, p.policy_type,
+                   p.coverage_amount, p.monthly_payment, p.start_date, p.end_date,
+                   p.status, c.first_name, c.last_name
+            FROM insurance_policies p
+            JOIN customers c ON c.customer_id = p.customer_id
+            WHERE p.policy_id=:pid
+        """, {"pid": policy_id})
+        policy = cur.fetchone()
+        if not policy:
+            flash(f"No policy found with ID {policy_id}.", "warning")
+            return redirect(url_for("policies_list"))
+
+        detail = None
+        if policy[3] == "HOME":
+            cur.execute("""
+                SELECT house_address, house_area, bedrooms, bathrooms, house_price
+                FROM home_policy_details WHERE policy_id=:pid
+            """, {"pid": policy_id})
+        elif policy[3] == "CAR":
+            cur.execute("""
+                SELECT make, model, car_year, vin, mileage_per_year
+                FROM car_policy_details WHERE policy_id=:pid
+            """, {"pid": policy_id})
+        elif policy[3] == "LIFE":
+            cur.execute("""
+                SELECT existing_conditions, beneficiary
+                FROM life_policy_details WHERE policy_id=:pid
+            """, {"pid": policy_id})
+        detail = cur.fetchone()
+
+        cur.close()
+        conn.close()
+        return render_template("policy_edit.html", policy=policy, detail=detail)
+    except Exception as e:
+        flash(f"DB error: {e}", "danger")
+        return redirect(url_for("policies_list"))
+
+# ---------------------------------------------------------------------------
 # Remove Customer
 # ---------------------------------------------------------------------------
 

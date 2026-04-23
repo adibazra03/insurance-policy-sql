@@ -24,11 +24,12 @@
           <th>Date of Birth</th>
           <th>Address</th>
           <th>Created At</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
         {% if not rows %}
-        <tr><td colspan="7" class="text-center text-muted py-4">No customers found.</td></tr>
+        <tr><td colspan="8" class="text-center text-muted py-4">No customers found.</td></tr>
         {% endif %}
         {% for r in rows %}
         <tr>
@@ -39,6 +40,11 @@
           <td>{{ r[5]|string|truncate(10, True, '') }}</td>
           <td>{{ r[6] }}, {{ r[7] }}, {{ r[8] }} {{ r[9] }}</td>
           <td><small class="text-muted">{{ r[10] }}</small></td>
+          <td class="text-end">
+            <a href="{{ url_for('edit_customer', customer_id=r[0]) }}" class="btn btn-warning btn-sm">
+              <i class="bi bi-pencil-square"></i>
+            </a>
+          </td>
         </tr>
         {% endfor %}
       </tbody>

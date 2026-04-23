@@ -28,6 +28,9 @@
     {% elif policy[2] == 'CAR' %}<span class="badge ms-1" style="background:#6f42c1;">CAR</span>
     {% else %}<span class="badge ms-1" style="background:#d63384;">LIFE</span>{% endif %}
   </h5>
+  <a href="{{ url_for('edit_policy', policy_id=policy[0]) }}" class="btn btn-warning btn-sm mb-3">
+    <i class="bi bi-pencil-square me-1"></i> Edit Policy
+  </a>
   <div class="row">
     <div class="col-md-6">
       <table class="table table-borderless table-sm">
