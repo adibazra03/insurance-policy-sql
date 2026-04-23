@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Edit Policy #{{ policy[0] }} — InsureTrack{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1><i class="bi bi-pencil-square me-2"></i>Edit Policy #{{ policy[0] }}</h1>
+  <p class="text-muted mb-0">
+    Customer: <strong>{{ policy[9] }} {{ policy[10] }}</strong> &nbsp;|&nbsp;
+    Type: <strong>{{ policy[2] }}</strong>
+  </p>
+</div>
+
+<form method="POST" action="{{ url_for('edit_policy') }}">
+  <input type="hidden" name="action" value="save" />
+  <input type="hidden" name="policy_id" value="{{ policy[0] }}" />
+  <input type="hidden" name="policy_type" value="{{ policy[2] }}" />
+
+  <div class="row g-3">
+
+    <!-- Core policy fields -->
+    <div class="col-12">
+      <div class="card p-4">
+        <h5 class="mb-3">Policy Information</h5>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Policy Number</label>
+            <input name="policy_number" class="form-control" value="{{ policy[1] }}" required />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Coverage Amount</label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input name="coverage_amount" type="number" step="0.01" class="form-control" value="{{ policy[3] }}" required />
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Monthly Payment</label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input name="monthly_payment" type="number" step="0.01" class="form-control" value="{{ policy[4] }}" required />
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Start Date</label>
+            <input name="start_date" type="date" class="form-control"
+                   value="{{ policy[5]|string|truncate(10, True, '') }}" required />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">End Date <small class="text-muted">(optional)</small></label>
+            <input name="end_date" type="date" class="form-control"
+                   value="{{ policy[6]|string|truncate(10, True, '') if policy[6] else '' }}" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Status</label>
+            <select name="status" class="form-select" required>
+              <option value="ACTIVE"   {% if policy[7] == 'ACTIVE'   %}selected{% endif %}>ACTIVE</option>
+              <option value="INACTIVE" {% if policy[7] == 'INACTIVE' %}selected{% endif %}>INACTIVE</option>
+              <option value="EXPIRED"  {% if policy[7] == 'EXPIRED'  %}selected{% endif %}>EXPIRED</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HOME details -->
+    {% if policy[2] == 'HOME' %}
+    <div class="col-12">
+      <div class="card p-4 border-primary">
+        <h5 class="mb-3 text-primary"><i class="bi bi-house me-1"></i>Home Policy Details</h5>
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label">House Address</label>
+            <input name="house_address" class="form-control" value="{{ detail[0] if detail else '' }}" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">House Price</label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input name="house_price" type="number" step="0.01" class="form-control" value="{{ detail[4] if detail else '' }}" />
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Area (sq ft)</label>
+            <input name="house_area" type="number" step="0.01" class="form-control" value="{{ detail[1] if detail else '' }}" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Bedrooms</label>
+            <input name="bedrooms" type="number" class="form-control" value="{{ detail[2] if detail else '' }}" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Bathrooms</label>
+            <input name="bathrooms" type="number" class="form-control" value="{{ detail[3] if detail else '' }}" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAR details -->
+    {% elif policy[2] == 'CAR' %}
+    <div class="col-12">
+      <div class="card p-4" style="border-color:#6f42c1 !important; border:1px solid;">
+        <h5 class="mb-3" style="color:#6f42c1;"><i class="bi bi-car-front me-1"></i>Car Policy Details</h5>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Make</label>
+            <input name="make" class="form-control" value="{{ detail[0] if detail else '' }}" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Model</label>
+            <input name="model" class="form-control" value="{{ detail[1] if detail else '' }}" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Year</label>
+            <input name="car_year" type="number" class="form-control" value="{{ detail[2] if detail else '' }}" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">VIN</label>
+            <input name="vin" class="form-control" maxlength="17" value="{{ detail[3] if detail else '' }}" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Mileage per Year</label>
+            <input name="mileage_per_year" type="number" class="form-control" value="{{ detail[4] if detail else '' }}" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIFE details -->
+    {% elif policy[2] == 'LIFE' %}
+    <div class="col-12">
+      <div class="card p-4" style="border-color:#d63384 !important; border:1px solid;">
+        <h5 class="mb-3" style="color:#d63384;"><i class="bi bi-heart-pulse me-1"></i>Life Policy Details</h5>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Existing Conditions <small class="text-muted">(optional)</small></label>
+            <input name="existing_conditions" class="form-control" value="{{ detail[0] if detail and detail[0] else '' }}" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Beneficiary</label>
+            <input name="beneficiary" class="form-control" value="{{ detail[1] if detail else '' }}" />
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="col-12 d-flex gap-2">
+      <button type="submit" class="btn btn-primary px-4">
+        <i class="bi bi-check-lg me-1"></i> Save Changes
+      </button>
+      <a href="{{ url_for('edit_policy') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+
+  </div>
+</form>
+{% endblock %}
